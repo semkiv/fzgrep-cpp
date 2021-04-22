@@ -1,35 +1,55 @@
-cmake_minimum_required(VERSION 3.10.0)
+cmake_minimum_required(VERSION 3.13.0)
 
-project(cpp20-playground)
+project(fzgrep)
 
-# General settings
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+enable_testing()
 
+find_package(Threads REQUIRED)
+
+message("-- Detecting IWYU")
 find_program(IWYU_PATH NAMES include-what-you-use iwyu)
 if(IWYU_PATH)
-    message("Detected IWYU: ${IWYU_PATH}")
-    set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "${IWYU_PATH}")
+    message("-- Detecting IWYU - found ${IWYU_PATH}")
 else()
-    message(WARNING "Could not find `include-what-you-use` (`iwyu`)")
+    message(WARNING "-- Detecting IWYU - not found")
 endif()
 
+message("-- Detecting clang-tidy")
 find_program(CLANG_TIDY_PATH NAMES clang-tidy)
 if(CLANG_TIDY_PATH)
-    message("Detected calng-tidy: ${CLANG_TIDY_PATH}")
-    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_PATH}" "--extra-arg=-Wno-unknown-warning-option")
+    message("-- Detecting clang-tidy - found ${CLANG_TIDY_PATH}")
 else()
-    message(WARNING "Could not find `clang-tidy`")
+    message(WARNING "-- Detecting clang-tidy - not found")
 endif()
 
 # Debug optimization options
-set(MSVC_DEBUG_FLAGS "/Od /Zi")
-set(CLANG_GCC_DEBUG_FLAGS "-O0 -g")
+set(
+    MSVC_DEBUG_FLAGS
+    "/Od"
+    "/Zi"
+)
+set(
+    CLANG_GCC_DEBUG_FLAGS
+    "-O0"
+    "-g"
+)
 
 # Release optimization options
-set(MSVC_RELEASE_FLAGS "/O2 /GL /Gw /Gy /D NDEBUG")
-set(CLANG_GCC_RELEASE_FLAGS "-O3 -flto -DNDEBUG")
+set(
+    MSVC_RELEASE_FLAGS
+    "/O2"
+    "/GL"
+    "/Gw"
+    "/Gy"
+    "/D"
+    "NDEBUG"
+)
+set(
+    CLANG_GCC_RELEASE_FLAGS
+    "-O3"
+    "-flto"
+    "-DNDEBUG"
+)
 
 # Microsoft Visual C++ compilation options
 set(
@@ -74,25 +94,39 @@ set(
     "-Wduplicated-cond"
     "-Wlogical-op"
     "-Wcast-align=strict"
-    "-fanalyzer"
+    # "-fanalyzer" # Clnag doesn't like this (and makes clang-tidy complain about it)
 )
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_FLAGS_DEBUG "${MSVC_DEBUG_FLAGS}")
-    set(CMAKE_CXX_FLAGS_RELEASE "${MSVC_RELEASE_FLAGS}")
-    add_compile_options("${MSVC_FLAGS}")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CLANG_GCC_DEBUG_FLAGS}")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_GCC_RELEASE_FLAGS}")
-    add_compile_options("${CLANG_FLAGS}")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CLANG_GCC_DEBUG_FLAGS}")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CLANG_GCC_RELEASE_FLAGS}")
-    add_compile_options("${GCC_FLAGS}")
-endif()
+add_executable("${PROJECT_NAME}" "src/main.cpp")
 
-if (UNIX)
-    add_link_options("-lpthread")
-endif (UNIX)
+set_target_properties(
+    "${PROJECT_NAME}"
+    PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED TRUE
+    CXX_EXTENSIONS OFF
+    EXPORT_COMPILE_COMMANDS ON
+    CXX_INCLUDE_WHAT_YOU_USE "${IWYU_PATH}"
+    CXX_CLANG_TIDY "${CLANG_TIDY_PATH};--extra-arg=-Wno-unknown-warning-option"
+)
 
-add_executable(fzgrep src/main.cpp)
+target_compile_options(
+    "${PROJECT_NAME}"
+    PRIVATE
+    "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:DEBUG>>:${MSVC_DEBUG_FLAGS}>"
+    "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RELEASE>>:${MSVC_RELEASE_FLAGS}>"
+    "$<$<AND:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>,$<CONFIG:DEBUG>>:${CLANG_GCC_DEBUG_FLAGS}>"
+    "$<$<AND:$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>,$<CONFIG:RELEASE>>:${CLANG_GCC_RELEASE_FLAGS}>"
+    "$<$<CXX_COMPILER_ID:MSVC>:${MSVC_FLAGS}>"
+    "$<$<CXX_COMPILER_ID:Clang>:${CLANG_FLAGS}>"
+    "$<$<CXX_COMPILER_ID:GNU>:${GCC_FLAGS}>"
+)
+
+target_link_libraries(
+    "${PROJECT_NAME}"
+    PRIVATE
+    Threads::Threads
+)
+
+add_subdirectory(src)
+add_subdirectory(tests)
