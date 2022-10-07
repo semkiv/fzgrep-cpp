@@ -1,0 +1,1 @@
+executable('fzgrep', 'main.cpp')
