@@ -1,117 +1,51 @@
-cmake_minimum_required(VERSION 3.13.0)
+cmake_minimum_required(VERSION 3.15.0)
+
+cmake_policy(SET CMP0091 NEW)
 
 project(fzgrep)
 
+set(MAIN_EXE "${PROJECT_NAME}")
+
+add_executable("${MAIN_EXE}")
+
 enable_testing()
 
-find_package(Threads REQUIRED)
-
-message("-- Detecting IWYU")
-find_program(IWYU_PATH NAMES include-what-you-use iwyu)
-if(IWYU_PATH)
-    message("-- Detecting IWYU - found ${IWYU_PATH}")
-else()
-    message(WARNING "-- Detecting IWYU - not found")
-endif()
-
-message("-- Detecting clang-tidy")
-find_program(CLANG_TIDY_PATH NAMES clang-tidy)
-if(CLANG_TIDY_PATH)
-    message("-- Detecting clang-tidy - found ${CLANG_TIDY_PATH}")
-else()
-    message(WARNING "-- Detecting clang-tidy - not found")
-endif()
-
 # Debug optimization options
-set(
-    MSVC_DEBUG_FLAGS
-    "/Od"
-    "/Zi"
-)
-set(
-    CLANG_GCC_DEBUG_FLAGS
-    "-O0"
-    "-g"
-)
+set(MSVC_DEBUG_FLAGS "/Od" "/Zi")
+set(CLANG_GCC_DEBUG_FLAGS "-O0" "-g")
 
 # Release optimization options
-set(
-    MSVC_RELEASE_FLAGS
-    "/O2"
-    "/GL"
-    "/Gw"
-    "/Gy"
-    "/D"
-    "NDEBUG"
-)
-set(
-    CLANG_GCC_RELEASE_FLAGS
-    "-O3"
-    "-flto"
-    "-DNDEBUG"
-)
+set(MSVC_RELEASE_FLAGS "/O2" "/GL" "/Gw" "/Gy" "/D" "NDEBUG")
+set(CLANG_GCC_RELEASE_FLAGS "-O3" "-flto" "-DNDEBUG")
 
 # Microsoft Visual C++ compilation options
 set(
-    MSVC_FLAGS
-    "/utf-8"
-    "/EHsc"
-    "/MP"
-    "/WX"
-    "/W4"
-    "/analyze"
+    MSVC_FLAGS "/utf-8" "/EHsc" "/MP" "/WX" "/W4" "/analyze"
     # "/fsanitize=address" # breaks incremental builds
 )
 
 # Clang compilation options
-set(
-    CLANG_FLAGS
-    "-pedantic-errors"
-    "-Werror"
-    "-Wpedantic"
-    "-Wall"
-    "-Wextra"
-    "-Wctor-dtor-privacy"
-    "-Wnon-virtual-dtor"
-    "-Wold-style-cast"
-    "-Woverloaded-virtual"
-    "-Wsign-promo"
-    "-Wfloat-equal"
-    "-Wshadow"
-    "-Wcast-qual"
-    "-Wconversion"
-    "-Wzero-as-null-pointer-constant"
-    "-Wextra-semi"
-    "-Wsign-conversion"
-    "-Wredundant-decls"
-)
+set(CLANG_FLAGS "-pedantic-errors" "-Werror" "-Wpedantic" "-Wall" "-Wextra" "-Wctor-dtor-privacy"
+    "-Wnon-virtual-dtor" "-Wold-style-cast" "-Woverloaded-virtual" "-Wsign-promo" "-Wfloat-equal"
+    "-Wshadow" "-Wcast-qual" "-Wconversion" "-Wzero-as-null-pointer-constant" "-Wextra-semi"
+    "-Wsign-conversion" "-Wredundant-decls")
 
 # GCC compilation options
 set(
-    GCC_FLAGS
-    "${CLANG_FLAGS}"
-    "-Wduplicated-branches"
-    "-Wduplicated-cond"
-    "-Wlogical-op"
-    "-Wcast-align=strict"
+    GCC_FLAGS "${CLANG_FLAGS}" "-Wduplicated-branches" "-Wduplicated-cond" "-Wlogical-op" "-Wcast-align=strict"
     # "-fanalyzer" # Clnag doesn't like this (and makes clang-tidy complain about it)
 )
 
-add_executable("${PROJECT_NAME}" "src/main.cpp")
-
 set_target_properties(
-    "${PROJECT_NAME}"
+    "${MAIN_EXE}"
     PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED TRUE
-    CXX_EXTENSIONS OFF
-    EXPORT_COMPILE_COMMANDS ON
-    CXX_INCLUDE_WHAT_YOU_USE "${IWYU_PATH}"
-    CXX_CLANG_TIDY "${CLANG_TIDY_PATH};--extra-arg=-Wno-unknown-warning-option"
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED TRUE CXX_EXTENSIONS OFF
+        EXPORT_COMPILE_COMMANDS ON
 )
 
 target_compile_options(
-    "${PROJECT_NAME}"
+    "${MAIN_EXE}"
     PRIVATE
     "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:DEBUG>>:${MSVC_DEBUG_FLAGS}>"
     "$<$<AND:$<CXX_COMPILER_ID:MSVC>,$<CONFIG:RELEASE>>:${MSVC_RELEASE_FLAGS}>"
@@ -123,10 +57,36 @@ target_compile_options(
 )
 
 target_link_libraries(
-    "${PROJECT_NAME}"
+    "${MAIN_EXE}"
     PRIVATE
     Threads::Threads
 )
+
+find_package(Threads REQUIRED)
+
+message("-- Detecting IWYU")
+find_program(IWYU_PATH NAMES include-what-you-use iwyu)
+if(IWYU_PATH)
+    message("-- IWYU - found ${IWYU_PATH}")
+    set_property(
+        TARGET "${MAIN_EXE}"
+        PROPERTY CXX_INCLUDE_WHAT_YOU_USE "${IWYU_PATH}"
+    )
+else()
+    message(WARNING "IWYU - not found")
+endif()
+
+message("-- Detecting clang-tidy")
+find_program(CLANG_TIDY_PATH NAMES clang-tidy)
+if(CLANG_TIDY_PATH)
+    message("-- clang-tidy - found ${CLANG_TIDY_PATH}")
+    set_property(
+        TARGET "${MAIN_EXE}"
+        PROPERTY CXX_CLANG_TIDY "${CLANG_TIDY_PATH};--extra-arg=-Wno-unknown-warning-option"
+    )
+else()
+    message(WARNING "clang-tidy - not found")
+endif()
 
 add_subdirectory(src)
 add_subdirectory(tests)
